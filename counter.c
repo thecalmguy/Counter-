@@ -82,6 +82,34 @@ int displaySingleNum(int num, int place) {
     return 0;
 }
 
+void writeEEPROM(unsigned char address, unsigned char datas)
+{
+  unsigned char INTCON_SAVE;//To save INTCON register value
+  EEADR = address; //Address to write
+  EEDATA = datas; //Data to write
+  WREN = 1; //Enable writing of EEPROM
+  INTCON_SAVE=INTCON;//Backup INCON interupt register
+  INTCON=0; //Diables the interrupt
+  EECON2=0x55; //Required sequence for write to internal EEPROM
+  EECON2=0xAA; //Required sequence for write to internal EEPROM
+  WR = 1; //Initialise write cycle
+  INTCON = INTCON_SAVE;//Enables Interrupt
+  WREN = 0; //To disable write
+  while(EEIF == 0)//Checking for complition of write operation
+  {
+    asm ("nop"); //do nothing
+  }
+  EEIF = 0; //Clearing EEIF bit
+}
+
+unsigned char readEEPROM(unsigned char address)
+{
+  EEADR = address; //Address to be read
+  RD = 1; //Initialise read cycle
+  return EEDATA; //Returning data
+}
+
+
 int displayAllNum(int num) {
     int dig100=0;
     int dig10=0;
@@ -127,6 +155,12 @@ int main(int argc, char** argv) {
   DIGIT3 =0;
   CLOCK_PIN=0;
   
+  if (readEEPROM(0X11) == 0XFF) {
+        count = 0;
+    } else {
+        count = readEEPROM(0X11);
+    }
+  
   while(1)
   {
     if (INPUT_PIN == 0) {
@@ -139,9 +173,29 @@ int main(int argc, char** argv) {
             //custom_delay(count);
             __delay_us(150);
         }
+        writeEEPROM(0X11,count);
         for (j = 50; j > 0; j--) {
             displayAllNum(count);
             }
+        j=0;
+        while(INPUT_PIN == 0 && j<150){
+            displayAllNum(count);
+            j++;
+        }
+        if(j>140){
+            count=0;
+            for (j = 0; j < 750; j++) {
+                BUZZER = 1;
+                //custom_delay(count);
+                __delay_us(150);
+                BUZZER = 0;
+                //custom_delay(count);
+                __delay_us(150);
+            }
+            for (j = 150; j > 0; j--) {
+                displayAllNum(count);
+            }
+        }
     }
     displayAllNum(count);
   }
